@@ -3,6 +3,7 @@ package ma.brief.covoiturage.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -34,9 +35,13 @@ import ma.brief.covoiturage.service.impl.TrajetServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 @ExtendWith(MockitoExtension.class)
 class TrajetServiceTest {
@@ -156,5 +161,38 @@ class TrajetServiceTest {
         assertThat(trajet.getStatut()).isEqualTo(StatutTrajet.ANNULE);
         assertThat(trajet.getReservations())
                 .allMatch(r -> r.getStatut() == StatutReservation.ANNULEE);
+    }
+
+    @Test
+    void search_utiliseDesBornesParDefautQuandLesFiltresSontNuls() {
+        when(trajetRepository.search(eq("Rabat"), eq("Marrakech"), any(LocalDateTime.class),
+                any(LocalDateTime.class), any(BigDecimal.class), any(Pageable.class)))
+                .thenReturn(Page.empty());
+
+        service.search("Rabat", "Marrakech", null, null, PageRequest.of(0, 10));
+
+        ArgumentCaptor<LocalDateTime> debut = ArgumentCaptor.forClass(LocalDateTime.class);
+        ArgumentCaptor<LocalDateTime> fin = ArgumentCaptor.forClass(LocalDateTime.class);
+        ArgumentCaptor<BigDecimal> prix = ArgumentCaptor.forClass(BigDecimal.class);
+        verify(trajetRepository).search(eq("Rabat"), eq("Marrakech"),
+                debut.capture(), fin.capture(), prix.capture(), any(Pageable.class));
+        assertThat(debut.getValue()).isEqualTo(LocalDateTime.of(1900, 1, 1, 0, 0));
+        assertThat(fin.getValue()).isEqualTo(LocalDateTime.of(2100, 12, 31, 23, 59, 59));
+        assertThat(prix.getValue()).isEqualByComparingTo("999999999.99");
+    }
+
+    @Test
+    void search_appliqueLesFiltresDeDateEtDePrix() {
+        java.time.LocalDate date = java.time.LocalDate.of(2026, 11, 25);
+        BigDecimal prixMax = new BigDecimal("150.00");
+        when(trajetRepository.search(eq("Rabat"), eq("Marrakech"),
+                eq(date.atStartOfDay()), eq(date.atTime(java.time.LocalTime.MAX)),
+                eq(prixMax), any(Pageable.class))).thenReturn(Page.empty());
+
+        service.search("Rabat", "Marrakech", date, prixMax, PageRequest.of(0, 10));
+
+        verify(trajetRepository).search(eq("Rabat"), eq("Marrakech"),
+                eq(date.atStartOfDay()), eq(date.atTime(java.time.LocalTime.MAX)),
+                eq(prixMax), any(Pageable.class));
     }
 }

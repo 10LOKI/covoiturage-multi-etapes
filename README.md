@@ -2,6 +2,8 @@
 
 Backend REST (Spring Boot 3.5.7 / Java 17 / Maven / PostgreSQL).
 
+Dépôt GitHub : <https://github.com/10LOKI/covoiturage-multi-etapes>
+
 ## 1. Prérequis installés sur cette machine
 
 | Outil | Version | Emplacement |
@@ -50,7 +52,7 @@ $env:JAVA_HOME="C:\Users\Hp\Tools\jdk-17.0.21+9"
 .\mvnw.cmd test
 ```
 
-Résultat actuel : **14 tests, 0 échec** (`CovoiturageApplicationTests`,
+Résultat actuel : **16 tests, 0 échec** (`CovoiturageApplicationTests`,
 `TrajetServiceTest`, `ReservationServiceTest`).
 
 ## 5. Endpoints
