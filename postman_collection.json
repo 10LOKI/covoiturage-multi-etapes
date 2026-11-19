@@ -1,0 +1,405 @@
+{
+  "info": {
+    "name": "Covoiturage multi-étapes — API REST",
+    "description": "Collection Postman couvrant les endpoints et les règles métier du brief (prix de segment, places restantes, unicité CONFIRMEE, délai 24 h, annulation atomique, codes d'erreur 400/403/404/409).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080" },
+    { "key": "trajetId", "value": "1" },
+    { "key": "conducteurId", "value": "1" },
+    { "key": "passagerId", "value": "1" }
+  ],
+  "item": [
+    {
+      "name": "00 - Health",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": { "raw": "{{baseUrl}}/actuator/health", "host": ["{{baseUrl}}"], "path": ["actuator", "health"] }
+      },
+      "response": []
+    },
+    {
+      "name": "01 - Publier un trajet (5 points, prix croissants)",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const iso = d => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 19);",
+              "const t = new Date(Date.now() + 72 * 3600 * 1000);",
+              "const add = h => new Date(t.getTime() + h * 3600 * 1000);",
+              "pm.variables.set('t0', iso(t));",
+              "pm.variables.set('t1', iso(add(1)));",
+              "pm.variables.set('t2', iso(add(2)));",
+              "pm.variables.set('t3', iso(add(4)));",
+              "pm.variables.set('t4', iso(add(6)));"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('201 Created', () => pm.response.to.have.status(201));",
+              "pm.test('statut PUBLIE et places restantes calculees', () => {",
+              "  const j = pm.response.json();",
+              "  pm.expect(j.statut).to.eql('PUBLIE');",
+              "  pm.expect(j.placesRestantes).to.eql(3);",
+              "  pm.collectionVariables.set('trajetId', j.id);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"conducteurId\": 1,\n  \"vehiculeId\": 1,\n  \"placesProposees\": 3,\n  \"points\": [\n    { \"ville\": \"Rabat\", \"heurePassage\": \"{{t0}}\", \"prixDepuisDepart\": 0.00 },\n    { \"ville\": \"Casablanca\", \"heurePassage\": \"{{t1}}\", \"prixDepuisDepart\": 40.00 },\n    { \"ville\": \"Settat\", \"heurePassage\": \"{{t2}}\", \"prixDepuisDepart\": 70.00 },\n    { \"ville\": \"Marrakech\", \"heurePassage\": \"{{t3}}\", \"prixDepuisDepart\": 120.00 }\n  ]\n}"
+        },
+        "url": { "raw": "{{baseUrl}}/api/trajets", "host": ["{{baseUrl}}"], "path": ["api", "trajets"] }
+      },
+      "response": []
+    },
+    {
+      "name": "02 - Rechercher Rabat → Marrakech avec prix max",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200 OK et page de resultats', () => {",
+              "  pm.response.to.have.status(200);",
+              "  pm.expect(pm.response.json().content).to.be.an('array');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/trajets/recherche?villeDepart=Rabat&villeArrivee=Marrakech&prixMax=150&page=0&size=10",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "trajets", "recherche"],
+          "query": [
+            { "key": "villeDepart", "value": "Rabat" },
+            { "key": "villeArrivee", "value": "Marrakech" },
+            { "key": "prixMax", "value": "150" },
+            { "key": "page", "value": "0" },
+            { "key": "size", "value": "10" }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "03 - Détail d'un trajet (places restantes calculées)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": ["pm.test('200 OK', () => pm.response.to.have.status(200));"]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": { "raw": "{{baseUrl}}/api/trajets/{{trajetId}}", "host": ["{{baseUrl}}"], "path": ["api", "trajets", "{{trajetId}}"] }
+      },
+      "response": []
+    },
+    {
+      "name": "04 - Réserver un segment Casablanca → Marrakech (80 DH)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('201 Created', () => pm.response.to.have.status(201));",
+              "pm.test('prix = 120 - 40 = 80.00', () => {",
+              "  const j = pm.response.json();",
+              "  pm.expect(Number(j.montantTotal)).to.eql(80);",
+              "  pm.expect(j.statut).to.eql('CONFIRMEE');",
+              "  pm.collectionVariables.set('reservationId', j.id);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"trajetId\": {{trajetId}},\n  \"passagerId\": {{passagerId}},\n  \"villeMontee\": \"Casablanca\",\n  \"villeDescente\": \"Marrakech\",\n  \"nombrePlaces\": 1\n}"
+        },
+        "url": { "raw": "{{baseUrl}}/api/reservations", "host": ["{{baseUrl}}"], "path": ["api", "reservations"] }
+      },
+      "response": []
+    },
+    {
+      "name": "05 - Refus d'une 2e réservation CONFIRMEE (409)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('409 Conflict', () => pm.response.to.have.status(409));",
+              "pm.test('ProblemDetail', () => pm.expect(pm.response.json()).to.have.property('detail'));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"trajetId\": {{trajetId}},\n  \"passagerId\": {{passagerId}},\n  \"villeMontee\": \"Rabat\",\n  \"villeDescente\": \"Settat\",\n  \"nombrePlaces\": 1\n}"
+        },
+        "url": { "raw": "{{baseUrl}}/api/reservations", "host": ["{{baseUrl}}"], "path": ["api", "reservations"] }
+      },
+      "response": []
+    },
+    {
+      "name": "06 - Montee apres descente refusée (400)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": ["pm.test('400 Bad Request', () => pm.response.to.have.status(400));"]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"trajetId\": {{trajetId}},\n  \"passagerId\": 2,\n  \"villeMontee\": \"Marrakech\",\n  \"villeDescente\": \"Rabat\",\n  \"nombrePlaces\": 1\n}"
+        },
+        "url": { "raw": "{{baseUrl}}/api/reservations", "host": ["{{baseUrl}}"], "path": ["api", "reservations"] }
+      },
+      "response": []
+    },
+    {
+      "name": "07 - Réservations d'un trajet (conducteur propriétaire)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": ["pm.test('200 OK', () => pm.response.to.have.status(200));"]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/trajets/{{trajetId}}/reservations?conducteurId={{conducteurId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "trajets", "{{trajetId}}", "reservations"],
+          "query": [{ "key": "conducteurId", "value": "{{conducteurId}}" }]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "08 - Accès refusé à un trajet d'autrui (403)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": ["pm.test('403 Forbidden', () => pm.response.to.have.status(403));"]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/trajets/{{trajetId}}/reservations?conducteurId=2",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "trajets", "{{trajetId}}", "reservations"],
+          "query": [{ "key": "conducteurId", "value": "2" }]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "09 - Trajet introuvable (404)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": ["pm.test('404 Not Found', () => pm.response.to.have.status(404));"]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": { "raw": "{{baseUrl}}/api/trajets/9999", "host": ["{{baseUrl}}"], "path": ["api", "trajets", "9999"] }
+      },
+      "response": []
+    },
+    {
+      "name": "10 - Annuler ma réservation (> 24 h, 204)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": ["pm.test('204 No Content', () => pm.response.to.have.status(204));"]
+          }
+        }
+      ],
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/reservations/{{reservationId}}?passagerId={{passagerId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "reservations", "{{reservationId}}"],
+          "query": [{ "key": "passagerId", "value": "{{passagerId}}" }]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "11 - Annulation d'un autre passager refusée (403)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": ["pm.test('403 Forbidden', () => pm.response.to.have.status(403));"]
+          }
+        }
+      ],
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/reservations/{{reservationId}}?passagerId=2",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "reservations", "{{reservationId}}"],
+          "query": [{ "key": "passagerId", "value": "2" }]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "12 - Terminer avant l'heure refusé (409)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": ["pm.test('409 Conflict', () => pm.response.to.have.status(409));"]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/trajets/{{trajetId}}/terminer?conducteurId={{conducteurId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "trajets", "{{trajetId}}", "terminer"],
+          "query": [{ "key": "conducteurId", "value": "{{conducteurId}}" }]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "13 - Annuler le trajet et ses réservations (atomique)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200 OK et statut ANNULE', () => {",
+              "  pm.response.to.have.status(200);",
+              "  pm.expect(pm.response.json().statut).to.eql('ANNULE');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/trajets/{{trajetId}}/annuler?conducteurId={{conducteurId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "trajets", "{{trajetId}}", "annuler"],
+          "query": [{ "key": "conducteurId", "value": "{{conducteurId}}" }]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "14 - Réservations d'un passager",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": ["pm.test('200 OK', () => pm.response.to.have.status(200));"]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/reservations?passagerId={{passagerId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "reservations"],
+          "query": [{ "key": "passagerId", "value": "{{passagerId}}" }]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "15 - Validation Bean Validation (400)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": ["pm.test('400 Bad Request', () => pm.response.to.have.status(400));"]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"trajetId\": {{trajetId}},\n  \"passagerId\": {{passagerId}},\n  \"villeMontee\": \"\",\n  \"villeDescente\": \"Marrakech\",\n  \"nombrePlaces\": 0\n}"
+        },
+        "url": { "raw": "{{baseUrl}}/api/reservations", "host": ["{{baseUrl}}"], "path": ["api", "reservations"] }
+      },
+      "response": []
+    }
+  ]
+}

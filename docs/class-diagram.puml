@@ -1,0 +1,100 @@
+@startuml
+title Plateforme de covoiturage multi-étapes — diagramme de classes (domaine)
+
+skinparam classAttributeIconSize 0
+skinparam rectangle {
+  BackgroundColor #F5F7FA
+  BorderColor #2C3E50
+}
+skinparam class {
+  BackgroundColor #EAF2F8
+  BorderColor #1A5276
+  ArrowColor #1A5276
+}
+
+class Conducteur {
+  +Long id
+  +String nom
+  +String prenom
+  +String email
+  +String telephone
+  +String numeroPermis
+}
+
+class Vehicule {
+  +Long id
+  +String marque
+  +String modele
+  +String immatriculation
+  +String couleur
+  +Integer capacite
+}
+
+class Passager {
+  +Long id
+  +String nom
+  +String prenom
+  +String email
+  +String telephone
+}
+
+class Trajet {
+  +Long id
+  +String villeDepart
+  +String villeArrivee
+  +LocalDateTime dateDepart
+  +Integer placesProposees
+  +StatutTrajet statut
+  +addPoint(PointArret): void
+}
+
+class PointArret {
+  +Long id
+  +String ville
+  +Integer ordre
+  +LocalDateTime heurePassage
+  +BigDecimal prixDepuisDepart
+}
+
+class Reservation {
+  +Long id
+  +Integer nombrePlaces
+  +BigDecimal montantTotal
+  +LocalDateTime dateReservation
+  +StatutReservation statut
+}
+
+enum StatutTrajet {
+  PUBLIE
+  COMPLET
+  TERMINE
+  ANNULE
+}
+
+enum StatutReservation {
+  CONFIRMEE
+  ANNULEE
+}
+
+Conducteur "1" --> "0..*" Vehicule : possede
+Conducteur "1" --> "0..*" Trajet : publie
+Vehicule "1" --> "0..*" Trajet : utilise
+Trajet "1" *-- "2..*" PointArret : points
+Trajet "1" --> "0..*" Reservation : reservé par
+Passager "1" --> "0..*" Reservation : effectue
+Reservation "0..*" --> "1" PointArret : pointMontage
+Reservation "0..*" --> "1" PointArret : pointDescente
+Trajet ..> StatutTrajet
+Reservation ..> StatutReservation
+
+note right of Trajet
+  placesRestantes = placesProposees
+  - somme(places CONFIRMEE)
+end note
+note right of Reservation
+  montantTotal =
+  (prix descente - prix montee)
+  * nombrePlaces (2 decimales)
+end note
+
+@enduml
