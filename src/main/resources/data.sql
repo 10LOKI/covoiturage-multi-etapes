@@ -12,7 +12,8 @@ INSERT INTO passagers (id, nom, prenom, email, telephone) VALUES
  (2, 'Bennani', 'Imane', 'imane.bennani@example.com', '0662233445'),
  (3, 'El Fassi', 'Zineb', 'zineb.elfassi@example.com', '0663344556'),
  (4, 'Tazi', 'Lina', 'lina.tazi@example.com', '0664455667'),
- (5, 'Amrani', 'Sofia', 'sofia.amrani@example.com', '0665566778')
+ (5, 'Amrani', 'Sofia', 'sofia.amrani@example.com', '0665566778'),
+ (6, 'Karim', 'Benali', 'karim.benali.passager@example.com', '0677889900')
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO vehicules (id, marque, modele, immatriculation, couleur, capacite, conducteur_id) VALUES

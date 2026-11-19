@@ -336,9 +336,8 @@
           "script": {
             "type": "text/javascript",
             "exec": [
-              "pm.test('200 OK et statut ANNULE', () => {",
-              "  pm.response.to.have.status(200);",
-              "  pm.expect(pm.response.json().statut).to.eql('ANNULE');",
+              "pm.test('204 No Content (trajet et réservations annulés)', () => {",
+              "  pm.response.to.have.status(204);",
               "});"
             ]
           }

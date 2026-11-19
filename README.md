@@ -65,15 +65,17 @@ Résultat actuel : **16 tests, 0 échec** (`CovoiturageApplicationTests`,
 | GET | `/api/trajets/recherche?villeDepart=…&villeArrivee=…&date=…&prixMax=…` | Recherche paginée |
 | GET | `/api/trajets/{id}/reservations?conducteurId=…` | Réservations d'un trajet |
 | POST | `/api/trajets/{id}/terminer?conducteurId=…` | Terminer un trajet |
-| POST | `/api/trajets/{id}/annuler?conducteurId=…` | Annuler trajet + réservations |
+| POST | `/api/trajets/{id}/annuler?conducteurId=…` | Annuler trajet + réservations (204) |
 | POST | `/api/reservations` | Réserver un segment (201) |
 | GET | `/api/reservations?passagerId=…` | Réservations d'un passager |
 | DELETE | `/api/reservations/{id}?passagerId=…` | Annuler une réservation (204) |
 
 ## 6. Collection Postman et diagramme UML
 
-- Collection : [`postman_collection.json`](postman_collection.json) — 16 requêtes avec scripts de test
+- Collection générale : [`postman_collection.json`](postman_collection.json) — 16 requêtes avec scripts de test
   (codes 200/201/204/400/403/404/409, calcul du prix, annulation atomique, délai 24 h).
+- Collection exacte du brief : [`postman_scenarios_11.json`](postman_scenarios_11.json) — les **11 scénarios**
+  du PDF (Salma, Karim, Imane, Hamid), à exécuter dans l'ordre sur le trajet de Hamid.
   Importer dans Postman via **Import → File**, puis garder la variable `baseUrl=http://localhost:8080`.
 - Diagramme de classes : [`docs/class-diagram.png`](docs/class-diagram.png)
   (source PlantUML : [`docs/class-diagram.puml`](docs/class-diagram.puml)).
@@ -93,7 +95,7 @@ Résultat actuel : **16 tests, 0 échec** (`CovoiturageApplicationTests`,
 | Annulation de sa réservation (> 24 h) | 204 |
 | Annulation de la réservation d'autrui | 403 |
 | Terminer avant l'heure de départ | 409 |
-| Annuler le trajet | 200, réservations passées en `ANNULEE` |
+| Annuler le trajet | 204, réservations passées en `ANNULEE` |
 | Annuler à moins de 24 h du départ | 409 |
 | Validation Bean Validation (ville vide, 0 place) | 400 |
 
@@ -122,3 +124,12 @@ src/main/java/ma/brief/covoiturage/
 - Annulation réservation jusqu'à 24 h avant le départ.
 - Annulation d'un trajet = trajet + réservations annulés dans la même transaction.
 - Codes HTTP : 400 validation, 403 ressource d'autrui, 404 introuvable, 409 règle métier, 500 interne.
+
+## 10. Avant la soutenance
+
+- Slides simples : [`docs/slides.md`](docs/slides.md).
+- Jeu de données : 5 conducteurs, 6 passagers (dont Karim), 5 véhicules, 9 trajets,
+  25 points d'arrêt, 9 réservations (≥ 5 dans chaque table).
+- Ouvrir : IDE, `docs/class-diagram.png`, `docs/jira-backlog.md`, le dépôt GitHub
+  et la collection `postman_scenarios_11.json`.
+- Lancer la base (`.\scripts\start-db.ps1`) puis l'API avant d'importer Postman.

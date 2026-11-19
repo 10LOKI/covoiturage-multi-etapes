@@ -65,7 +65,8 @@ public class TrajetController {
     }
 
     @PostMapping("/{id}/annuler")
-    public TrajetResponse annuler(@PathVariable Long id, @RequestParam Long conducteurId) {
-        return service.annuler(id, conducteurId);
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void annuler(@PathVariable Long id, @RequestParam Long conducteurId) {
+        service.annuler(id, conducteurId);
     }
 }
