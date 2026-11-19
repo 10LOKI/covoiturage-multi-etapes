@@ -128,8 +128,8 @@ src/main/java/ma/brief/covoiturage/
 ## 10. Avant la soutenance
 
 - Slides simples : [`docs/slides.md`](docs/slides.md).
-- Jeu de données : 5 conducteurs, 6 passagers (dont Karim), 5 véhicules, 9 trajets,
-  25 points d'arrêt, 9 réservations (≥ 5 dans chaque table).
+- Jeu de données : 5 conducteurs, 6 passagers (dont Karim), 5 véhicules, 5 trajets,
+  13 points d'arrêt, 5 réservations (≥ 5 dans chaque table).
 - Ouvrir : IDE, `docs/class-diagram.png`, `docs/jira-backlog.md`, le dépôt GitHub
   et la collection `postman_scenarios_11.json`.
 - Lancer la base (`.\scripts\start-db.ps1`) puis l'API avant d'importer Postman.
