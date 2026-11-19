@@ -77,6 +77,7 @@ Résultat actuel : **16 tests, 0 échec** (`CovoiturageApplicationTests`,
   Importer dans Postman via **Import → File**, puis garder la variable `baseUrl=http://localhost:8080`.
 - Diagramme de classes : [`docs/class-diagram.png`](docs/class-diagram.png)
   (source PlantUML : [`docs/class-diagram.puml`](docs/class-diagram.puml)).
+- Backlog JIRA à importer : [`docs/jira-backlog.md`](docs/jira-backlog.md).
 
 ## 7. Scénarios vérifiés sur l'API en cours d'exécution
 
