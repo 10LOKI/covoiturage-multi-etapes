@@ -31,3 +31,16 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Fichiers de configuration des assistants IA (non livrés) ###
+AGENTS.md
+CLAUDE.md
+GEMINI.md
+.copilot-instructions.md
+.github/copilot-instructions.md
+.cursorrules
+.cursor/
+.windsurf/
+.opencode/
+opencode.json
+
