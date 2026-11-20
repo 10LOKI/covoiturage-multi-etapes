@@ -56,12 +56,8 @@ public class ReservationServiceImpl implements ReservationService {
         verifierOrdrePoints(montage, descente);
         verifierPasDeDoublon(passager.getId(), trajet.getId());
 
-        Integer occupees = reservationRepository.sumPlacesConfirmees(
-                trajet.getId(), StatutReservation.CONFIRMEE);
-        int restantes = trajet.getPlacesProposees() - (occupees == null ? 0 : occupees);
-        if (request.nombrePlaces() > restantes || request.nombrePlaces() > trajet.getPlacesProposees()) {
-            throw new RegleMetierException("Places restantes insuffisantes : " + restantes);
-        }
+        int restantes = placesRestantes(trajet);
+        verifierPlacesDisponibles(request.nombrePlaces(), restantes, trajet.getPlacesProposees());
 
         BigDecimal montant = calculerMontant(montage, descente, request.nombrePlaces());
 
@@ -116,6 +112,18 @@ public class ReservationServiceImpl implements ReservationService {
             trajetRepository.save(trajet);
         }
         log.info("Reservation annulee : id={}, trajet={}", reservationId, trajet.getId());
+    }
+
+    private int placesRestantes(Trajet trajet) {
+        Integer occupees = reservationRepository.sumPlacesConfirmees(
+                trajet.getId(), StatutReservation.CONFIRMEE);
+        return trajet.getPlacesProposees() - (occupees == null ? 0 : occupees);
+    }
+
+    private void verifierPlacesDisponibles(int demandees, int restantes, int proposees) {
+        if (demandees > restantes || demandees > proposees) {
+            throw new RegleMetierException("Places restantes insuffisantes : " + restantes);
+        }
     }
 
     private void verifierPasDeDoublon(Long passagerId, Long trajetId) {
