@@ -56,50 +56,20 @@ public class TrajetServiceImpl implements TrajetService {
     @Override
     @Transactional
     public TrajetResponse publish(TrajetRequest request) {
-        Conducteur conducteur = conducteurRepository.findById(request.conducteurId())
-                .orElseThrow(() -> new RessourceIntrouvableException(
-                        "Conducteur introuvable : " + request.conducteurId()));
-        Vehicule vehicule = vehiculeRepository.findById(request.vehiculeId())
-                .orElseThrow(() -> new RessourceIntrouvableException(
-                        "Vehicule introuvable : " + request.vehiculeId()));
-        if (!vehicule.getConducteur().getId().equals(conducteur.getId())) {
-            log.warn("Tentative de publication avec le vehicule d'un autre conducteur");
-            throw new AccesRefuseException("Le conducteur ne peut utiliser que ses propres vehicules");
-        }
-        if (request.placesProposees() > vehicule.getCapacite()) {
-            throw new DonneesInvalidesException("Le vehicule ne peut proposer que "
-                    + vehicule.getCapacite() + " places au maximum");
-        }
+        Conducteur conducteur = findConducteur(request.conducteurId());
+        Vehicule vehicule = findVehicule(request.vehiculeId());
+        verifierVehicule(conducteur, vehicule, request.placesProposees());
 
-        List<PointArretRequest> pointsRequest = request.points();
-        if (pointsRequest == null || pointsRequest.size() < 2) {
+        List<PointArretRequest> points = request.points();
+        if (points == null || points.size() < 2) {
             throw new DonneesInvalidesException("Un trajet doit contenir au moins deux points d'arret");
         }
-        verifierParcours(pointsRequest);
+        verifierParcours(points);
 
-        Trajet trajet = Trajet.builder()
-                .conducteur(conducteur)
-                .vehicule(vehicule)
-                .villeDepart(norm(pointsRequest.get(0).ville()))
-                .villeArrivee(norm(pointsRequest.get(pointsRequest.size() - 1).ville()))
-                .dateDepart(pointsRequest.get(0).heurePassage())
-                .placesProposees(request.placesProposees())
-                .statut(StatutTrajet.PUBLIE)
-                .build();
-
-        for (int i = 0; i < pointsRequest.size(); i++) {
-            PointArretRequest p = pointsRequest.get(i);
-            trajet.addPoint(PointArret.builder()
-                    .ville(norm(p.ville()))
-                    .ordre(i)
-                    .heurePassage(p.heurePassage())
-                    .prixDepuisDepart(p.prixDepuisDepart().setScale(2, RoundingMode.HALF_UP))
-                    .build());
-        }
-
+        Trajet trajet = construireTrajet(conducteur, vehicule, request.placesProposees(), points);
         Trajet saved = trajetRepository.save(trajet);
-        log.info("Trajet publie : id={}, conducteur={}, {}, {} -> {}", saved.getId(),
-                conducteur.getId(), saved.getVilleDepart(), saved.getVilleArrivee(), saved.getDateDepart());
+        log.info("Trajet publie : id={}, conducteur={}, {} -> {}",
+                saved.getId(), conducteur.getId(), saved.getVilleDepart(), saved.getVilleArrivee());
         return trajetMapper.toResponse(saved).withPlacesRestantes(saved.getPlacesProposees());
     }
 
@@ -167,39 +137,112 @@ public class TrajetServiceImpl implements TrajetService {
                 .withPlacesRestantes(placesRestantes(trajet));
     }
 
+    private Conducteur findConducteur(Long id) {
+        return conducteurRepository.findById(id)
+                .orElseThrow(() -> new RessourceIntrouvableException("Conducteur introuvable : " + id));
+    }
+
+    private Vehicule findVehicule(Long id) {
+        return vehiculeRepository.findById(id)
+                .orElseThrow(() -> new RessourceIntrouvableException("Vehicule introuvable : " + id));
+    }
+
+    private void verifierVehicule(Conducteur conducteur, Vehicule vehicule, int placesProposees) {
+        if (!vehicule.getConducteur().getId().equals(conducteur.getId())) {
+            log.warn("Tentative de publication avec le vehicule d'un autre conducteur");
+            throw new AccesRefuseException("Le conducteur ne peut utiliser que ses propres vehicules");
+        }
+        if (placesProposees > vehicule.getCapacite()) {
+            throw new DonneesInvalidesException("Le vehicule ne peut proposer que "
+                    + vehicule.getCapacite() + " places au maximum");
+        }
+    }
+
+    private Trajet construireTrajet(Conducteur conducteur, Vehicule vehicule,
+                                    int placesProposees, List<PointArretRequest> points) {
+        Trajet trajet = Trajet.builder()
+                .conducteur(conducteur)
+                .vehicule(vehicule)
+                .villeDepart(norm(points.get(0).ville()))
+                .villeArrivee(norm(points.get(points.size() - 1).ville()))
+                .dateDepart(points.get(0).heurePassage())
+                .placesProposees(placesProposees)
+                .statut(StatutTrajet.PUBLIE)
+                .build();
+
+        for (int i = 0; i < points.size(); i++) {
+            PointArretRequest point = points.get(i);
+            trajet.addPoint(PointArret.builder()
+                    .ville(norm(point.ville()))
+                    .ordre(i)
+                    .heurePassage(point.heurePassage())
+                    .prixDepuisDepart(prixArrondi(point.prixDepuisDepart()))
+                    .build());
+        }
+        return trajet;
+    }
+
     private void verifierParcours(List<PointArretRequest> points) {
         Set<String> villes = new HashSet<>();
         BigDecimal prixPrecedent = BigDecimal.ZERO.setScale(2);
         LocalDateTime heurePrecedente = null;
 
         for (int i = 0; i < points.size(); i++) {
-            PointArretRequest p = points.get(i);
-            if (p.ville() == null || p.ville().isBlank()) {
-                throw new DonneesInvalidesException("La ville du point " + i + " est obligatoire");
-            }
-            if (p.heurePassage() == null || p.prixDepuisDepart() == null) {
-                throw new DonneesInvalidesException("Heure et prix sont obligatoires pour chaque point");
-            }
-            if (!villes.add(norm(p.ville()))) {
-                throw new DonneesInvalidesException("Une ville ne peut apparaitre qu'une seule fois : " + p.ville());
-            }
-            BigDecimal prix = p.prixDepuisDepart().setScale(2, RoundingMode.HALF_UP);
-            if (prix.compareTo(BigDecimal.ZERO) < 0) {
-                throw new DonneesInvalidesException("Le prix ne peut pas etre negatif");
-            }
-            if (i == 0 && prix.compareTo(BigDecimal.ZERO) != 0) {
-                throw new DonneesInvalidesException("Le prix du point de depart doit valoir 0");
-            }
-            if (i > 0 && prix.compareTo(prixPrecedent) <= 0) {
-                throw new DonneesInvalidesException("Les prix depuis le depart doivent etre strictement croissants");
-            }
-            if (heurePrecedente != null && !p.heurePassage().isAfter(heurePrecedente)) {
-                throw new DonneesInvalidesException("Les heures de passage doivent etre strictement croissantes");
-            }
+            PointArretRequest point = points.get(i);
+            verifierPointObligatoire(point, i);
+            verifierVilleUnique(point, villes);
+            BigDecimal prix = prixArrondi(point.prixDepuisDepart());
+            verifierPrix(point, prix, prixPrecedent, i);
+            verifierHeure(point, heurePrecedente);
             prixPrecedent = prix;
-            heurePrecedente = p.heurePassage();
+            heurePrecedente = point.heurePassage();
         }
-        if (!points.get(0).heurePassage().isAfter(LocalDateTime.now())) {
+        verifierDepartFutur(points.get(0).heurePassage());
+    }
+
+    private void verifierPointObligatoire(PointArretRequest point, int index) {
+        if (point.ville() == null || point.ville().isBlank()) {
+            throw new DonneesInvalidesException("La ville du point " + index + " est obligatoire");
+        }
+        if (point.heurePassage() == null || point.prixDepuisDepart() == null) {
+            throw new DonneesInvalidesException("Heure et prix sont obligatoires pour chaque point");
+        }
+    }
+
+    private void verifierVilleUnique(PointArretRequest point, Set<String> villes) {
+        if (!villes.add(norm(point.ville()))) {
+            throw new DonneesInvalidesException(
+                    "Une ville ne peut apparaitre qu'une seule fois : " + point.ville());
+        }
+    }
+
+    private BigDecimal prixArrondi(BigDecimal prix) {
+        return prix.setScale(2, RoundingMode.HALF_UP);
+    }
+
+    private void verifierPrix(PointArretRequest point, BigDecimal prix,
+                              BigDecimal prixPrecedent, int index) {
+        if (prix.compareTo(BigDecimal.ZERO) < 0) {
+            throw new DonneesInvalidesException("Le prix ne peut pas etre negatif");
+        }
+        if (index == 0 && prix.compareTo(BigDecimal.ZERO) != 0) {
+            throw new DonneesInvalidesException("Le prix du point de depart doit valoir 0");
+        }
+        if (index > 0 && prix.compareTo(prixPrecedent) <= 0) {
+            throw new DonneesInvalidesException(
+                    "Les prix depuis le depart doivent etre strictement croissants");
+        }
+    }
+
+    private void verifierHeure(PointArretRequest point, LocalDateTime heurePrecedente) {
+        if (heurePrecedente != null && !point.heurePassage().isAfter(heurePrecedente)) {
+            throw new DonneesInvalidesException(
+                    "Les heures de passage doivent etre strictement croissantes");
+        }
+    }
+
+    private void verifierDepartFutur(LocalDateTime depart) {
+        if (!depart.isAfter(LocalDateTime.now())) {
             throw new DonneesInvalidesException("Le depart doit etre dans le futur");
         }
     }
