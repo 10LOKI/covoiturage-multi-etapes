@@ -25,4 +25,4 @@
 - Scénario Postman : « Publier un trajet ».
 
 ## Branche
-- `feat/COV-1`
+- `feat/publish-multi-step-trip`
