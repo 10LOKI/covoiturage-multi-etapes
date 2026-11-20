@@ -17,4 +17,4 @@
 - Scénarios Postman 1, 3 et 4 du brief (2 places restantes, trajet `COMPLET`, refus).
 
 ## Branche
-- `feat/COV-7`
+- `feat/remaining-seats`

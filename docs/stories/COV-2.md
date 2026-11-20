@@ -20,4 +20,4 @@
 - Scénario Postman : « Rechercher Settat → Casablanca » (trajet de Hamid absent).
 
 ## Branche
-- `feat/COV-2`
+- `feat/search-trips`

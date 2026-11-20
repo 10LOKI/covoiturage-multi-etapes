@@ -21,4 +21,4 @@
   de chargement du contexte échoue faute de dialecte JDBC.
 
 ## Branche
-- `feat/COV-10`
+- `feat/publish-multi-step-trip0`
