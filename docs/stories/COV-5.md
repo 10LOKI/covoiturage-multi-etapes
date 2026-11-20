@@ -21,4 +21,4 @@
 - Scénarios Postman 1 et 3 du brief (50 DH et 160 DH).
 
 ## Branche
-- `feat/COV-5`
+- `feat/book-segment`
