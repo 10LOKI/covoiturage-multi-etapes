@@ -75,8 +75,7 @@ public class TrajetServiceImpl implements TrajetService {
 
     @Override
     public TrajetResponse getById(Long id) {
-        Trajet trajet = findWithDetails(id);
-        return trajetMapper.toResponse(trajet).withPlacesRestantes(placesRestantes(trajet));
+        return toResponseAvecPlaces(findWithDetails(id));
     }
 
     @Override
@@ -274,6 +273,10 @@ public class TrajetServiceImpl implements TrajetService {
     private Trajet findWithDetails(Long id) {
         return trajetRepository.findByIdWithDetails(id)
                 .orElseThrow(() -> new RessourceIntrouvableException("Trajet introuvable : " + id));
+    }
+
+    private TrajetResponse toResponseAvecPlaces(Trajet trajet) {
+        return trajetMapper.toResponse(trajet).withPlacesRestantes(placesRestantes(trajet));
     }
 
     private Integer placesRestantes(Trajet trajet) {
