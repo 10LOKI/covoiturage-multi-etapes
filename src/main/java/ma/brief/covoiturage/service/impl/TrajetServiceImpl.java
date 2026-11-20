@@ -82,17 +82,34 @@ public class TrajetServiceImpl implements TrajetService {
     @Override
     public Page<TrajetSearchItem> search(String villeDepart, String villeArrivee, LocalDate date,
                                          BigDecimal prixMax, Pageable pageable) {
-        // La requete JPQL utilise des comparaisons directes : des bornes non nulles evitent
-        // a PostgreSQL de deviner le type d'un parametre null et gardent une seule requete.
-        LocalDateTime dateDebut = date == null
-                ? LocalDateTime.of(1900, 1, 1, 0, 0)
-                : date.atStartOfDay();
-        LocalDateTime dateFin = date == null
-                ? LocalDateTime.of(2100, 12, 31, 23, 59, 59)
-                : date.atTime(LocalTime.MAX);
-        BigDecimal prixMaxEffectif = prixMax == null ? new BigDecimal("999999999.99") : prixMax;
-        return trajetRepository.search(norm(villeDepart), norm(villeArrivee),
-                dateDebut, dateFin, prixMaxEffectif, pageable);
+        return trajetRepository.search(
+                norm(villeDepart),
+                norm(villeArrivee),
+                debutRecherche(date),
+                finRecherche(date),
+                prixMaxRecherche(prixMax),
+                pageable);
+    }
+
+    private LocalDateTime debutRecherche(LocalDate date) {
+        if (date == null) {
+            return LocalDateTime.of(1900, 1, 1, 0, 0);
+        }
+        return date.atStartOfDay();
+    }
+
+    private LocalDateTime finRecherche(LocalDate date) {
+        if (date == null) {
+            return LocalDateTime.of(2100, 12, 31, 23, 59, 59);
+        }
+        return date.atTime(LocalTime.MAX);
+    }
+
+    private BigDecimal prixMaxRecherche(BigDecimal prixMax) {
+        if (prixMax == null) {
+            return new BigDecimal("999999999.99");
+        }
+        return prixMax;
     }
 
     @Override
