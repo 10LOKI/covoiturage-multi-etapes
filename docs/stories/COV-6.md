@@ -16,4 +16,4 @@
   → 409 `REGLE_METIER_VIOLEE`.
 
 ## Branche
-- `feat/COV-6`
+- `feat/prevent-duplicate-booking`
