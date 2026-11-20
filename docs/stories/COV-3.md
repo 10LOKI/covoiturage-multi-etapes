@@ -17,4 +17,4 @@
 - Scénario Postman : « Trajet de Hamid (PUBLIE, 3 places) ».
 
 ## Branche
-- `feat/COV-3`
+- `feat/trip-details`
