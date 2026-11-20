@@ -54,12 +54,7 @@ public class ReservationServiceImpl implements ReservationService {
         PointArret montage = trouverPoint(trajet, request.villeMontee());
         PointArret descente = trouverPoint(trajet, request.villeDescente());
         verifierOrdrePoints(montage, descente);
-        reservationRepository.findByPassagerIdAndTrajetIdAndStatut(
-                        passager.getId(), trajet.getId(), StatutReservation.CONFIRMEE)
-                .ifPresent(r -> {
-                    throw new RegleMetierException(
-                            "Le passager a deja une reservation confirmee sur ce trajet");
-                });
+        verifierPasDeDoublon(passager.getId(), trajet.getId());
 
         Integer occupees = reservationRepository.sumPlacesConfirmees(
                 trajet.getId(), StatutReservation.CONFIRMEE);
@@ -121,6 +116,15 @@ public class ReservationServiceImpl implements ReservationService {
             trajetRepository.save(trajet);
         }
         log.info("Reservation annulee : id={}, trajet={}", reservationId, trajet.getId());
+    }
+
+    private void verifierPasDeDoublon(Long passagerId, Long trajetId) {
+        boolean dejaReserve = reservationRepository.findByPassagerIdAndTrajetIdAndStatut(
+                passagerId, trajetId, StatutReservation.CONFIRMEE).isPresent();
+        if (dejaReserve) {
+            throw new RegleMetierException(
+                    "Le passager a deja une reservation confirmee sur ce trajet");
+        }
     }
 
     private void verifierTrajetPublie(Trajet trajet) {
