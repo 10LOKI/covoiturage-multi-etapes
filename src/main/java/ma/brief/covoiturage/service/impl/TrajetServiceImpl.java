@@ -124,16 +124,12 @@ public class TrajetServiceImpl implements TrajetService {
     public TrajetResponse terminer(Long trajetId, Long conducteurId) {
         Trajet trajet = findWithDetails(trajetId);
         verifierProprietaire(trajet, conducteurId);
-        if (trajet.getStatut() != StatutTrajet.PUBLIE && trajet.getStatut() != StatutTrajet.COMPLET) {
-            throw new RegleMetierException("Seuls les trajets PUBLIE ou COMPLET peuvent etre termines");
-        }
-        if (!LocalDateTime.now().isAfter(trajet.getDateDepart())) {
-            throw new RegleMetierException("Le trajet ne peut etre termine qu'apres son heure de depart");
-        }
+        verifierStatutModifiable(trajet);
+        verifierDepartDepasse(trajet);
+
         trajet.setStatut(StatutTrajet.TERMINE);
         log.info("Trajet termine : id={}", trajetId);
-        return trajetMapper.toResponse(trajetRepository.save(trajet))
-                .withPlacesRestantes(placesRestantes(trajet));
+        return toResponseAvecPlaces(trajetRepository.save(trajet));
     }
 
     @Override
@@ -141,16 +137,12 @@ public class TrajetServiceImpl implements TrajetService {
     public TrajetResponse annuler(Long trajetId, Long conducteurId) {
         Trajet trajet = findWithDetails(trajetId);
         verifierProprietaire(trajet, conducteurId);
-        if (trajet.getStatut() == StatutTrajet.TERMINE || trajet.getStatut() == StatutTrajet.ANNULE) {
-            throw new RegleMetierException("Le trajet est deja dans un statut final");
-        }
+        verifierStatutNonFinal(trajet);
+
         trajet.setStatut(StatutTrajet.ANNULE);
-        trajet.getReservations().stream()
-                .filter(r -> r.getStatut() == StatutReservation.CONFIRMEE)
-                .forEach(r -> r.setStatut(StatutReservation.ANNULEE));
+        annulerReservationsConfirmees(trajet);
         log.info("Trajet annule avec ses reservations : id={}", trajetId);
-        return trajetMapper.toResponse(trajetRepository.save(trajet))
-                .withPlacesRestantes(placesRestantes(trajet));
+        return toResponseAvecPlaces(trajetRepository.save(trajet));
     }
 
     private Conducteur findConducteur(Long id) {
@@ -260,6 +252,32 @@ public class TrajetServiceImpl implements TrajetService {
     private void verifierDepartFutur(LocalDateTime depart) {
         if (!depart.isAfter(LocalDateTime.now())) {
             throw new DonneesInvalidesException("Le depart doit etre dans le futur");
+        }
+    }
+
+    private void verifierStatutModifiable(Trajet trajet) {
+        if (trajet.getStatut() != StatutTrajet.PUBLIE && trajet.getStatut() != StatutTrajet.COMPLET) {
+            throw new RegleMetierException("Seuls les trajets PUBLIE ou COMPLET peuvent etre termines");
+        }
+    }
+
+    private void verifierDepartDepasse(Trajet trajet) {
+        if (!LocalDateTime.now().isAfter(trajet.getDateDepart())) {
+            throw new RegleMetierException("Le trajet ne peut etre termine qu'apres son heure de depart");
+        }
+    }
+
+    private void verifierStatutNonFinal(Trajet trajet) {
+        if (trajet.getStatut() == StatutTrajet.TERMINE || trajet.getStatut() == StatutTrajet.ANNULE) {
+            throw new RegleMetierException("Le trajet est deja dans un statut final");
+        }
+    }
+
+    private void annulerReservationsConfirmees(Trajet trajet) {
+        for (Reservation reservation : trajet.getReservations()) {
+            if (reservation.getStatut() == StatutReservation.CONFIRMEE) {
+                reservation.setStatut(StatutReservation.ANNULEE);
+            }
         }
     }
 
