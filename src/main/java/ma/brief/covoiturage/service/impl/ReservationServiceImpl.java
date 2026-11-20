@@ -50,34 +50,16 @@ public class ReservationServiceImpl implements ReservationService {
                 .orElseThrow(() -> new RessourceIntrouvableException(
                         "Trajet introuvable : " + request.trajetId()));
 
-        if (trajet.getStatut() != StatutTrajet.PUBLIE) {
-            log.warn("Reservation refusee : trajet {} en statut {}", trajet.getId(), trajet.getStatut());
-            throw new RegleMetierException("On ne reserve que sur un trajet PUBLIE");
-        }
+        verifierTrajetPublie(trajet);
         PointArret montage = trouverPoint(trajet, request.villeMontee());
         PointArret descente = trouverPoint(trajet, request.villeDescente());
-        if (montage.getOrdre() >= descente.getOrdre()) {
-            throw new DonneesInvalidesException("La montee doit etre avant la descente");
-        }
-        reservationRepository.findByPassagerIdAndTrajetIdAndStatut(
-                        passager.getId(), trajet.getId(), StatutReservation.CONFIRMEE)
-                .ifPresent(r -> {
-                    throw new RegleMetierException(
-                            "Le passager a deja une reservation confirmee sur ce trajet");
-                });
+        verifierOrdrePoints(montage, descente);
+        verifierPasDeDoublon(passager.getId(), trajet.getId());
 
-        Integer occupees = reservationRepository.sumPlacesConfirmees(
-                trajet.getId(), StatutReservation.CONFIRMEE);
-        int restantes = trajet.getPlacesProposees() - (occupees == null ? 0 : occupees);
-        if (request.nombrePlaces() > restantes || request.nombrePlaces() > trajet.getPlacesProposees()) {
-            throw new RegleMetierException("Places restantes insuffisantes : " + restantes);
-        }
+        int restantes = placesRestantes(trajet);
+        verifierPlacesDisponibles(request.nombrePlaces(), restantes, trajet.getPlacesProposees());
 
-        BigDecimal prixPlace = descente.getPrixDepuisDepart()
-                .subtract(montage.getPrixDepuisDepart())
-                .setScale(2, RoundingMode.HALF_UP);
-        BigDecimal montant = prixPlace.multiply(BigDecimal.valueOf(request.nombrePlaces()))
-                .setScale(2, RoundingMode.HALF_UP);
+        BigDecimal montant = calculerMontant(montage, descente, request.nombrePlaces());
 
         Reservation reservation = Reservation.builder()
                 .passager(passager)
@@ -91,8 +73,7 @@ public class ReservationServiceImpl implements ReservationService {
                 .build();
         Reservation saved = reservationRepository.save(reservation);
 
-        int nouvellesRestantes = restantes - request.nombrePlaces();
-        trajet.setStatut(nouvellesRestantes == 0 ? StatutTrajet.COMPLET : StatutTrajet.PUBLIE);
+        mettreAJourStatut(trajet, restantes - request.nombrePlaces());
         trajetRepository.save(trajet);
 
         log.info("Reservation creee : id={}, trajet={}, passager={}, places={}, montant={}",
@@ -131,6 +112,51 @@ public class ReservationServiceImpl implements ReservationService {
             trajetRepository.save(trajet);
         }
         log.info("Reservation annulee : id={}, trajet={}", reservationId, trajet.getId());
+    }
+
+    private int placesRestantes(Trajet trajet) {
+        Integer occupees = reservationRepository.sumPlacesConfirmees(
+                trajet.getId(), StatutReservation.CONFIRMEE);
+        return trajet.getPlacesProposees() - (occupees == null ? 0 : occupees);
+    }
+
+    private void verifierPlacesDisponibles(int demandees, int restantes, int proposees) {
+        if (demandees > restantes || demandees > proposees) {
+            throw new RegleMetierException("Places restantes insuffisantes : " + restantes);
+        }
+    }
+
+    private void verifierPasDeDoublon(Long passagerId, Long trajetId) {
+        boolean dejaReserve = reservationRepository.findByPassagerIdAndTrajetIdAndStatut(
+                passagerId, trajetId, StatutReservation.CONFIRMEE).isPresent();
+        if (dejaReserve) {
+            throw new RegleMetierException(
+                    "Le passager a deja une reservation confirmee sur ce trajet");
+        }
+    }
+
+    private void verifierTrajetPublie(Trajet trajet) {
+        if (trajet.getStatut() != StatutTrajet.PUBLIE) {
+            log.warn("Reservation refusee : trajet {} en statut {}", trajet.getId(), trajet.getStatut());
+            throw new RegleMetierException("On ne reserve que sur un trajet PUBLIE");
+        }
+    }
+
+    private void verifierOrdrePoints(PointArret montage, PointArret descente) {
+        if (montage.getOrdre() >= descente.getOrdre()) {
+            throw new DonneesInvalidesException("La montee doit etre avant la descente");
+        }
+    }
+
+    private BigDecimal calculerMontant(PointArret montage, PointArret descente, int places) {
+        BigDecimal prixPlace = descente.getPrixDepuisDepart()
+                .subtract(montage.getPrixDepuisDepart())
+                .setScale(2, RoundingMode.HALF_UP);
+        return prixPlace.multiply(BigDecimal.valueOf(places)).setScale(2, RoundingMode.HALF_UP);
+    }
+
+    private void mettreAJourStatut(Trajet trajet, int restantes) {
+        trajet.setStatut(restantes == 0 ? StatutTrajet.COMPLET : StatutTrajet.PUBLIE);
     }
 
     private PointArret trouverPoint(Trajet trajet, String ville) {
