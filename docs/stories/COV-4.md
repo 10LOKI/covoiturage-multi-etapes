@@ -21,4 +21,4 @@
   « Hamid annule le trajet avec 2 réservations » (204).
 
 ## Branche
-- `feat/COV-4`
+- `feat/trip-lifecycle`
