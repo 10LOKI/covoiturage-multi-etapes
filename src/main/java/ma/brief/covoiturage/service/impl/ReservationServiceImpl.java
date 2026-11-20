@@ -90,28 +90,48 @@ public class ReservationServiceImpl implements ReservationService {
     @Override
     @Transactional
     public void annuler(Long reservationId, Long passagerId) {
-        Reservation reservation = reservationRepository.findById(reservationId)
-                .orElseThrow(() -> new RessourceIntrouvableException(
-                        "Reservation introuvable : " + reservationId));
+        Reservation reservation = findReservation(reservationId);
+        verifierProprietaire(reservation, passagerId);
+        verifierConfirmee(reservation);
+        Trajet trajet = reservation.getTrajet();
+        verifierDelai24h(trajet);
+
+        reservation.setStatut(StatutReservation.ANNULEE);
+        reservationRepository.save(reservation);
+        reouvrirTrajetSiComplet(trajet);
+        log.info("Reservation annulee : id={}, trajet={}", reservationId, trajet.getId());
+    }
+
+    private Reservation findReservation(Long id) {
+        return reservationRepository.findById(id)
+                .orElseThrow(() -> new RessourceIntrouvableException("Reservation introuvable : " + id));
+    }
+
+    private void verifierProprietaire(Reservation reservation, Long passagerId) {
         if (!Objects.equals(reservation.getPassager().getId(), passagerId)) {
-            log.warn("Acces refuse à la reservation {} pour le passager {}", reservationId, passagerId);
+            log.warn("Acces refuse a la reservation {} pour le passager {}",
+                    reservation.getId(), passagerId);
             throw new AccesRefuseException("Cette reservation n'appartient pas a ce passager");
         }
+    }
+
+    private void verifierConfirmee(Reservation reservation) {
         if (reservation.getStatut() != StatutReservation.CONFIRMEE) {
             throw new RegleMetierException("La reservation est deja annulee");
         }
-        Trajet trajet = reservation.getTrajet();
+    }
+
+    private void verifierDelai24h(Trajet trajet) {
         if (!LocalDateTime.now().isBefore(trajet.getDateDepart().minusHours(24))) {
             throw new RegleMetierException("Le delai de 24 heures avant le depart est depasse");
         }
-        reservation.setStatut(StatutReservation.ANNULEE);
-        reservationRepository.save(reservation);
+    }
 
+    private void reouvrirTrajetSiComplet(Trajet trajet) {
         if (trajet.getStatut() == StatutTrajet.COMPLET) {
             trajet.setStatut(StatutTrajet.PUBLIE);
             trajetRepository.save(trajet);
         }
-        log.info("Reservation annulee : id={}, trajet={}", reservationId, trajet.getId());
     }
 
     private int placesRestantes(Trajet trajet) {
