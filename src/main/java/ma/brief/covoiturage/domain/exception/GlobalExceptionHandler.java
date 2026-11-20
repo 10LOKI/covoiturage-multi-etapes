@@ -2,6 +2,7 @@ package ma.brief.covoiturage.domain.exception;
 
 import jakarta.servlet.http.HttpServletRequest;
 import java.net.URI;
+import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import org.slf4j.Logger;
@@ -11,6 +12,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.validation.FieldError;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 @RestControllerAdvice
@@ -43,8 +45,9 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ProblemDetail> handleValidation(MethodArgumentNotValidException e, HttpServletRequest req) {
         Map<String, String> fields = new LinkedHashMap<>();
-        e.getBindingResult().getFieldErrors()
-                .forEach(fe -> fields.putIfAbsent(fe.getField(), fe.getDefaultMessage()));
+        for (FieldError error : e.getBindingResult().getFieldErrors()) {
+            fields.putIfAbsent(error.getField(), error.getDefaultMessage());
+        }
         ProblemDetail pd = build(HttpStatus.BAD_REQUEST, "VALIDATION_ECHOUEE",
                 "Donnees de requete invalides", req).getBody();
         pd.setProperty("fields", fields);
@@ -63,7 +66,7 @@ public class GlobalExceptionHandler {
         ProblemDetail pd = ProblemDetail.forStatusAndDetail(status, message);
         pd.setType(URI.create("urn:error:" + code.toLowerCase().replace('_', '-')));
         pd.setTitle(code);
-        pd.setProperty("timestamp", java.time.Instant.now().toString());
+        pd.setProperty("timestamp", Instant.now().toString());
         pd.setProperty("status", status.value());
         pd.setProperty("code", code);
         pd.setProperty("path", req.getRequestURI());
