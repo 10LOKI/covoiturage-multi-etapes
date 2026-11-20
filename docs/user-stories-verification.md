@@ -1,6 +1,6 @@
 # Vérification des user stories — Plateforme de covoiturage
 
-Chaque story a sa branche `feat/COV-x` et son dossier de vérification dans `docs/stories/`.
+Chaque story a sa branche `feat/...` et son dossier de vérification dans `docs/stories/`.
 Les branches sont cumulatives : `feat/search-trips` part de `feat/publish-multi-step-trip`, etc.
 À fusionner dans l'ordre de 1 à 11.
 
