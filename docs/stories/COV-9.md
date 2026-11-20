@@ -20,4 +20,4 @@
 - Collection Postman : scripts de test sur les codes 400/403/404/409.
 
 ## Branche
-- `feat/COV-9`
+- `feat/standardized-errors`

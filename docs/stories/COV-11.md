@@ -20,4 +20,4 @@
 - Dépôt : <https://github.com/10LOKI/covoiturage-multi-etapes>.
 
 ## Branche
-- `feat/COV-11`
+- `feat/publish-multi-step-trip1`

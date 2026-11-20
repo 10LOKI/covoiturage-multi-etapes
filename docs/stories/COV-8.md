@@ -20,4 +20,4 @@
 - Scénarios Postman 5 et 10 du brief.
 
 ## Branche
-- `feat/COV-8`
+- `feat/cancel-booking`
